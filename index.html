@@ -71,6 +71,28 @@
   .flag.pop{animation:pop .55s cubic-bezier(.2,1.5,.4,1)}
   @keyframes pop{0%{transform:translate(-50%,-50%) scale(.1);opacity:0}60%{transform:translate(-50%,-50%) scale(1.18)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 
+  /* Custom hover/tap tooltip showing the match score */
+  .tooltip{
+    position:fixed;z-index:50;pointer-events:none;
+    background:#1c1b18;color:#f2ede1;
+    padding:7px 12px;border-radius:10px;
+    font-size:13px;line-height:1.35;text-align:center;white-space:nowrap;
+    box-shadow:0 6px 18px rgba(0,0,0,.30);
+    opacity:0;transform:translate(-50%,-100%) translateY(-6px) scale(.96);
+    transition:opacity .12s ease, transform .12s ease;
+  }
+  .tooltip.on{opacity:1;transform:translate(-50%,-100%) translateY(-10px) scale(1)}
+  .tooltip::after{content:"";position:absolute;left:50%;bottom:-5px;transform:translateX(-50%) rotate(45deg);
+    width:10px;height:10px;background:#1c1b18;border-radius:2px}
+  /* flipped below the flag (for flags near the top edge) */
+  .tooltip.below{transform:translate(-50%,0) translateY(6px) scale(.96)}
+  .tooltip.below.on{transform:translate(-50%,0) translateY(10px) scale(1)}
+  .tooltip.below::after{top:-5px;bottom:auto}
+  .tooltip .tt-round{font-size:10px;letter-spacing:.7px;text-transform:uppercase;font-weight:700;color:var(--gold)}
+  .tooltip .tt-teams{font-weight:600;margin-top:2px}
+  .tooltip .tt-score{margin-top:3px;font-size:16px;font-weight:800}
+  .tooltip .tt-score.pending{font-size:12px;font-weight:500;color:#cfc9bd}
+
   footer{
     color:var(--muted);font-size:12.5px;text-align:center;
     padding:2px 12px 22px;line-height:1.5;
@@ -255,8 +277,10 @@ function buildModel(feed){
   for (const numStr of [...R32_NUMS, 89,90,91,92,93,94,95,96,97,98,99,100,101,102,104]){
     const num = +numStr;
     const p = participants(num);
-    const sc = (feed[num]||{}).score;
-    node[num] = { participants:p, winner:winner(num), score:sc, label:scoreLabel(sc) };
+    const m = feed[num] || {};
+    const sc = m.score;
+    node[num] = { participants:p, winner:winner(num), score:sc, label:scoreLabel(sc),
+                  date:m.date||"", time:m.time||"" };
   }
   return node;
 }
@@ -264,6 +288,20 @@ function buildModel(feed){
 /* ------------------------------ Rendering --------------------------------- */
 const stage = document.getElementById("stage");
 let prevWinners = {}; // num -> winner team, for diff/pop animation
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function kickoff(node){ // "2026-06-28" + "12:00 UTC-7" -> "28 Jun · 12:00 UTC-7"
+  if (!node.date) return "Not played yet";
+  const m = node.date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const day = m ? `${+m[3]} ${MONTHS[+m[2]-1]}` : node.date;
+  return node.time ? `${day} · ${node.time}` : day;
+}
+// tooltip fields for a match node (same match backs both its outer flags and its winner flag)
+function tipFor(model, num){
+  const n = model[num];
+  const teams = `${n.participants[0]||"TBD"} vs ${n.participants[1]||"TBD"}`;
+  return { round:roundName(num), teams, score:n.label, when:n.label?"":kickoff(n) };
+}
 
 function connectorPath(num){
   // child ring radius (outer) and this node's radius (inner)
@@ -314,7 +352,7 @@ function render(model){
     const win = model[f.num].winner;
     const elim = win && win!==team; // this team lost its R32 match
     flags.push({x,y,team,cls:"r0"+(elim?" eliminated":(win===team?" win":"")),
-                title:`${model[f.num].participants[0]} vs ${model[f.num].participants[1]}${model[f.num].label?" — "+model[f.num].label:""}`});
+                tip:tipFor(model,f.num)});
   });
 
   // Build connectors + dots/winner-flags for every match node
@@ -331,8 +369,7 @@ function render(model){
     if (w){
       newWinners[num] = w;
       const pop = (prevWinners[num]!==w) ? " pop" : "";
-      flags.push({x,y,team:w,cls:`r${lvl}${pop}`,
-                  title:`${roundName(num)}: ${w} def. ${other(model[num],w)}${model[num].label?" ("+model[num].label+")":""}`});
+      flags.push({x,y,team:w,cls:`r${lvl}${pop}`, tip:tipFor(model,num)});
     } else {
       dots += `<circle class="dot" cx="${x}" cy="${y}" r="3.4"/>`;
     }
@@ -347,8 +384,8 @@ function render(model){
   if (finalNode.winner){
     newWinners[ROOT] = finalNode.winner;
     const pop = (prevWinners[ROOT]!==finalNode.winner) ? " pop" : "";
-    champFlag = {x:CX,y:CY,team:finalNode.winner,cls:`champ${pop}`,
-                 title:`Champion: ${finalNode.winner}${finalNode.label?" ("+finalNode.label+")":""}`};
+    const t = tipFor(model,ROOT); t.round = "Champion";
+    champFlag = {x:CX,y:CY,team:finalNode.winner,cls:`champ${pop}`,tip:t};
   } else {
     center += trophySVG();
   }
@@ -361,13 +398,16 @@ function render(model){
     const src = flagURL(fl.team, w);
     const left = (fl.x/1000*100).toFixed(3);
     const top  = (fl.y/1000*100).toFixed(3);
+    const t = fl.tip || {round:"",teams:fl.team,score:"",when:""};
+    const data = `data-round="${escapeAttr(t.round)}" data-teams="${escapeAttr(t.teams)}" `+
+                 `data-score="${escapeAttr(t.score||"")}" data-when="${escapeAttr(t.when||"")}"`;
     if (src){
       // on image error, fall back to a neutral circle so the bracket never gaps
-      html += `<img class="flag ${fl.cls}" src="${src}" alt="${fl.team}" title="${escapeAttr(fl.title)}" loading="lazy"
+      html += `<img class="flag ${fl.cls}" src="${src}" alt="${fl.team}" ${data} loading="lazy"
                  style="left:${left}%;top:${top}%" onerror="this.removeAttribute('src');this.style.background='#cfc9bd'"/>`;
     } else {
       // unknown team string -> neutral placeholder so the bracket never blanks
-      html += `<div class="flag ${fl.cls}" title="${escapeAttr(fl.team)}" style="left:${left}%;top:${top}%;background:#cfc9bd"></div>`;
+      html += `<div class="flag ${fl.cls}" ${data} style="left:${left}%;top:${top}%;background:#cfc9bd"></div>`;
     }
   }
   stage.innerHTML = html;
@@ -378,11 +418,48 @@ function roundName(num){
   const l = levelOf(num);
   return ["","Round of 32","Round of 16","Quarter-final","Semi-final","Final"][l];
 }
-function other(node, w){
-  const [a,b] = node.participants;
-  return (w===a) ? (b||"TBD") : (a||"TBD");
-}
 function escapeAttr(s){ return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+function escapeHTML(s){ return escapeAttr(s).replace(/>/g,"&gt;"); }
+
+/* ---- Custom tooltip: hover on desktop, tap on touch (design §7 score display) ---- */
+const tipEl = document.createElement("div");
+tipEl.className = "tooltip";
+document.body.appendChild(tipEl);
+
+function showTip(el){
+  const d = el.dataset;
+  if (!d || !d.teams) return;
+  const scoreHTML = d.score
+    ? `<div class="tt-score">${escapeHTML(d.score)}</div>`
+    : `<div class="tt-score pending">${escapeHTML(d.when || "Not played yet")}</div>`;
+  tipEl.innerHTML =
+    (d.round ? `<div class="tt-round">${escapeHTML(d.round)}</div>` : "") +
+    `<div class="tt-teams">${escapeHTML(d.teams)}</div>` + scoreHTML;
+  const r = el.getBoundingClientRect();
+  const cx = Math.min(Math.max(r.left + r.width/2, 8), window.innerWidth - 8);
+  const flip = r.top < 90; // near top edge -> show below the flag
+  tipEl.classList.toggle("below", flip);
+  tipEl.style.left = cx + "px";
+  tipEl.style.top  = (flip ? r.bottom : r.top) + "px";
+  tipEl.classList.add("on");
+}
+function hideTip(){ tipEl.classList.remove("on"); }
+
+// hover (desktop)
+stage.addEventListener("pointerover", e=>{
+  const el = e.target.closest(".flag");
+  if (el && e.pointerType!=="touch") showTip(el);
+});
+stage.addEventListener("pointerout", e=>{
+  if (e.target.closest(".flag") && e.pointerType!=="touch") hideTip();
+});
+// tap (touch): toggle, and dismiss when tapping elsewhere
+stage.addEventListener("click", e=>{
+  const el = e.target.closest(".flag");
+  if (el){ e.stopPropagation(); tipEl.classList.contains("on") ? hideTip() : showTip(el); }
+});
+document.addEventListener("click", ()=>hideTip());
+window.addEventListener("scroll", hideTip, {passive:true});
 
 /* ------------------------------- Update loop ------------------------------ */
 const statusEl = document.getElementById("status");
