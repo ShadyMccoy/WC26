@@ -130,7 +130,7 @@
 
   <footer>
     <div><span class="status-dot" id="statusDot"></span><span id="status">Loading…</span></div>
-    <div style="margin-top:4px">Data: openfootball · Flags: flagcdn · Static page, updates in your browser</div>
+    <div style="margin-top:4px">Data: <a href="https://github.com/openfootball/worldcup.json" target="_blank" rel="noopener">openfootball</a> · Flags: <a href="https://flagcdn.com" target="_blank" rel="noopener">flagcdn</a></div>
   </footer>
 
 <script>
@@ -149,6 +149,9 @@
 
 /* ----------------------------- Config -------------------------------------- */
 const FEED_URL = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json";
+/* Last-commit time of the feed file = when the source data actually changed.
+   Unauthenticated GitHub API: 60 req/h per IP; one call per 2-min tick fits. */
+const FEED_COMMITS_URL = "https://api.github.com/repos/openfootball/worldcup.json/commits?path=2026/worldcup.json&per_page=1&sha=master";
 const POLL_MS  = 120000; // 2 min (design §9 — source lags anyway)
 
 /* Team name -> ISO 3166-1 alpha-2 (flagcdn slug). The only hand-authored data.
@@ -565,20 +568,37 @@ window.addEventListener("scroll", hideTip, {passive:true});
 /* ------------------------------- Update loop ------------------------------ */
 const statusEl = document.getElementById("status");
 const dotEl = document.getElementById("statusDot");
-let lastGoodAt = null;
+let dataUpdatedAt = null; // when the source feed last changed (its latest commit)
+
+async function refreshDataUpdatedAt(){
+  try{
+    const res = await fetch(FEED_COMMITS_URL);
+    if (!res.ok) return; // rate-limited etc. — keep last known value
+    const commits = await res.json();
+    const iso = commits?.[0]?.commit?.committer?.date;
+    if (iso) dataUpdatedAt = new Date(iso);
+  }catch(err){ console.warn("commit lookup failed:", err); }
+}
+
+function fmtStamp(d){
+  const opts = {hour:"2-digit", minute:"2-digit"};
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString([], opts)
+    : d.toLocaleString([], {month:"short", day:"numeric", ...opts});
+}
 
 function stamp(ok, msg){
   dotEl.className = "status-dot " + (ok?"ok":"err");
-  const t = lastGoodAt ? lastGoodAt.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "—";
-  statusEl.textContent = (msg ? msg+" · " : "") + "updated " + t;
+  const parts = [];
+  if (msg) parts.push(msg);
+  if (dataUpdatedAt) parts.push("data updated " + fmtStamp(dataUpdatedAt));
+  statusEl.textContent = parts.join(" · ");
 }
 
 async function tick(){
   try{
-    const raw = await fetchResults();
-    const model = buildModel(normalize(raw));
-    lastGoodAt = new Date();
-    render(model);
+    const [raw] = await Promise.all([fetchResults(), refreshDataUpdatedAt()]);
+    render(buildModel(normalize(raw)));
     stamp(true);
   }catch(err){
     // Never blank the bracket — keep last-good on screen, quiet retry (design §9)
