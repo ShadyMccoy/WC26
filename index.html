@@ -59,7 +59,7 @@
     border:2px solid #fff;
     aspect-ratio:1/1;
     cursor:default;
-    transition:width .25s ease, height .25s ease;
+    transition:width .25s ease, height .25s ease, opacity .2s ease;
   }
   .flag.r0{width:6.6%}
   .flag.r1{width:5.7%}
@@ -108,6 +108,32 @@
     font-weight:700;color:var(--gold)}
   .tooltip .tt-venue{margin-top:4px;font-size:11px;color:#cfc9bd}
 
+  /* Venue toggle + interactive legend: hovering/tapping a stadium pill spotlights
+     its matches on the bracket (everything else fades via .vfilter). */
+  .conn,.dot,.center-line,.trophy{transition:opacity .2s ease}
+  .stage.vfilter .flag:not(.vhit){opacity:.18}
+  .stage.vfilter .conn:not(.vhit),.stage.vfilter .dot:not(.vhit),
+  .stage.vfilter .center-line:not(.vhit),.stage.vfilter .trophy:not(.vhit){opacity:.12}
+  .controls{text-align:center;margin-top:2px}
+  .vtoggle{
+    font:inherit;font-size:12px;color:var(--muted);
+    background:none;border:1px solid rgba(28,27,24,.22);border-radius:999px;
+    padding:4px 12px;cursor:pointer;
+  }
+  .vtoggle:hover{color:var(--ink);border-color:var(--ink)}
+  .vtoggle.on{color:var(--ink);border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+  .legend{display:none;flex-wrap:wrap;justify-content:center;gap:6px;
+    width:min(94vw,920px);margin:10px auto 2px}
+  .legend.on{display:flex}
+  .venue{
+    font:inherit;font-size:12px;color:var(--ink);background:#fff;
+    border:1px solid rgba(28,27,24,.18);border-radius:999px;padding:3px 10px;cursor:pointer;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .venue:hover{border-color:var(--gold)}
+  .venue.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+  .venue .n{color:var(--muted);margin-left:6px;font-size:11px}
+
   footer{
     color:var(--muted);font-size:12.5px;text-align:center;
     padding:2px 12px 22px;line-height:1.5;
@@ -125,6 +151,11 @@
   </header>
 
   <div class="stage" id="stage" aria-label="World Cup 2026 knockout bracket"></div>
+
+  <div class="controls">
+    <button class="vtoggle" id="venueToggle" aria-pressed="false">Show venues</button>
+    <div class="legend" id="venueLegend" role="group" aria-label="Stadiums"></div>
+  </div>
 
   <footer>
     <div><span class="status-dot" id="statusDot"></span><span id="status">Loading…</span></div>
@@ -207,6 +238,8 @@ const CHILDREN = {
 };
 const R32_NUMS = [73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88];
 const R32SET = new Set(R32_NUMS);
+// every match node on the radial bracket, outer ring first
+const NODE_NUMS = [...R32_NUMS, 89,90,91,92,93,94,95,96,97,98,99,100,101,102,104];
 
 /* Reverse of CHILDREN: match num -> its parent (the next-round match its winner
    advances into). R32 leaves point at their R16 match; the Final (ROOT) has no
@@ -320,8 +353,7 @@ function buildModel(feed){
     if (idx!=null && p[idx]) w = p[idx];
     return (_w[num] = w);
   }
-  for (const numStr of [...R32_NUMS, 89,90,91,92,93,94,95,96,97,98,99,100,101,102,104]){
-    const num = +numStr;
+  for (const num of NODE_NUMS){
     const p = participants(num);
     const m = feed[num] || {};
     const sc = m.score;
@@ -416,9 +448,9 @@ function childFlagAngle(num, slot){
   return flagAngle(target);
 }
 
-function trophySVG(){
-  // simple trophy glyph centered at (CX,CY)
-  return `<g transform="translate(${CX},${CY})" fill="var(--line)">
+function trophySVG(ground){
+  // simple trophy glyph centered at (CX,CY); tagged with the final's venue
+  return `<g class="trophy" data-ground="${escapeAttr(ground||"")}" transform="translate(${CX},${CY})" fill="var(--line)">
     <path d="M-16,-26 h32 v8 a16,18 0 0 1 -32,0 z" />
     <path d="M-22,-24 a8,8 0 0 0 8,8 v-4 a4,4 0 0 1 -4,-4 z" />
     <path d="M22,-24 a8,8 0 0 1 -8,8 v-4 a4,4 0 0 0 4,-4 z" />
@@ -442,16 +474,16 @@ function render(model){
     const elim = win && win!==team; // this team lost its R32 match
     const tip = tipFor(model,f.num);
     flags.push({x,y,team,cls:"r0"+(elim?" eliminated":(win===team?" win":""))+hlClass(tip),
-                tip});
+                tip, ground:model[f.num].ground});
   });
 
   // Build connectors + dots/winner-flags for every match node
   let conns = "";
   let dots = "";
-  const nodeNums = [...R32_NUMS, 89,90,91,92,93,94,95,96,97,98,99,100,101,102,104];
-  for (const num of nodeNums){
+  for (const num of NODE_NUMS){
     const lvl = levelOf(num);
-    if (lvl<=4) conns += `<path class="conn" d="${connectorPath(num)}"/>`;
+    const gAttr = `data-ground="${escapeAttr(model[num].ground)}"`;
+    if (lvl<=4) conns += `<path class="conn" ${gAttr} d="${connectorPath(num)}"/>`;
     const ang = angleOf(num);
     if (num===ROOT) continue; // final handled at center
     const [x,y] = pt(RADIUS[lvl], ang);
@@ -465,25 +497,26 @@ function render(model){
       // outer flag. PARENT[num] is the next-round match; fall back to num if absent.
       const nextNum = PARENT[num];
       const tip = nextNum!=null ? tipFor(model,nextNum) : tipFor(model,num);
-      flags.push({x,y,team:w,cls:`r${lvl}${pop}${hlClass(tip)}`, tip});
+      flags.push({x,y,team:w,cls:`r${lvl}${pop}${hlClass(tip)}`, tip, ground:model[num].ground});
     } else {
-      dots += `<circle class="dot" cx="${x}" cy="${y}" r="3.4"/>`;
+      dots += `<circle class="dot" ${gAttr} cx="${x}" cy="${y}" r="3.4"/>`;
     }
   }
 
   // Final / center
   const finalNode = model[ROOT];
+  const finalG = `data-ground="${escapeAttr(finalNode.ground)}"`;
   const sf1 = pt(RADIUS[4], angleOf(101)), sf2 = pt(RADIUS[4], angleOf(102));
-  let center = `<line class="center-line" x1="${CX}" y1="${CY}" x2="${sf1[0]}" y2="${sf1[1]}"/>
-                <line class="center-line" x1="${CX}" y1="${CY}" x2="${sf2[0]}" y2="${sf2[1]}"/>`;
+  let center = `<line class="center-line" ${finalG} x1="${CX}" y1="${CY}" x2="${sf1[0]}" y2="${sf1[1]}"/>
+                <line class="center-line" ${finalG} x1="${CX}" y1="${CY}" x2="${sf2[0]}" y2="${sf2[1]}"/>`;
   let champFlag = null;
   if (finalNode.winner){
     newWinners[ROOT] = finalNode.winner;
     const pop = (prevWinners[ROOT]!==finalNode.winner) ? " pop" : "";
     const t = tipFor(model,ROOT); t.round = "Champion";
-    champFlag = {x:CX,y:CY,team:finalNode.winner,cls:`champ${pop}`,tip:t};
+    champFlag = {x:CX,y:CY,team:finalNode.winner,cls:`champ${pop}`,tip:t,ground:finalNode.ground};
   } else {
-    center += trophySVG();
+    center += trophySVG(finalNode.ground);
   }
 
   // Assemble SVG (lines + dots + trophy) then the flag overlay
@@ -497,7 +530,10 @@ function render(model){
     const t = fl.tip || {round:"",teams:fl.team,score:"",when:""};
     const data = `data-round="${escapeAttr(t.round)}" data-teams="${escapeAttr(t.teams)}" `+
                  `data-score="${escapeAttr(t.score||"")}" data-when="${escapeAttr(t.when||"")}" `+
-                 `data-status="${escapeAttr(t.status||"")}" data-venue="${escapeAttr(t.venue||"")}"`;
+                 `data-status="${escapeAttr(t.status||"")}" data-venue="${escapeAttr(t.venue||"")}" `+
+                 // data-venue above = tooltip's match; data-ground = match AT this
+                 // node's position, which is what the venue filter spotlights
+                 `data-ground="${escapeAttr(fl.ground||"")}"`;
     if (src){
       // on image error, fall back to a neutral circle so the bracket never gaps
       html += `<img class="flag ${fl.cls}" src="${src}" alt="${fl.team}" ${data} loading="lazy"
@@ -509,6 +545,9 @@ function render(model){
   }
   stage.innerHTML = html;
   prevWinners = newWinners;
+  // re-render replaced the stage DOM, so refresh the legend + venue spotlight
+  buildLegend(model);
+  applyVenueHL();
 }
 
 function roundName(num){
@@ -566,6 +605,66 @@ stage.addEventListener("click", e=>{
 });
 document.addEventListener("click", ()=>hideTip());
 window.addEventListener("scroll", hideTip, {passive:true});
+
+/* ---- Venue toggle + interactive legend (stadium spotlight) ----
+   One pill per stadium hosting bracket matches. Hover previews (desktop),
+   click/tap pins; clicking the pinned pill unpins. Highlight = every element
+   tagged with that ground gets .vhit while .vfilter fades the rest. */
+const venueToggle = document.getElementById("venueToggle");
+const legendEl = document.getElementById("venueLegend");
+let venuesOn = false, venuePinned = null, venueHover = null;
+let legendHTML = ""; // rebuild the pills only when the feed's venues change
+
+function buildLegend(model){
+  const counts = {}; // ground -> number of bracket matches there
+  for (const num of NODE_NUMS){
+    const g = model[num].ground;
+    if (g) counts[g] = (counts[g]||0)+1;
+  }
+  if (venuePinned && !counts[venuePinned]) venuePinned = null;
+  const keys = Object.keys(counts).sort((a,b)=>venueLabel(a).localeCompare(venueLabel(b)));
+  let html = "";
+  for (const g of keys){
+    html += `<button class="venue" data-ground="${escapeAttr(g)}">`+
+            `${escapeHTML(venueLabel(g))}<span class="n">${counts[g]}</span></button>`;
+  }
+  if (html !== legendHTML){ legendEl.innerHTML = html; legendHTML = html; }
+}
+
+function applyVenueHL(){
+  const g = venuesOn ? (venueHover || venuePinned) : null;
+  stage.classList.toggle("vfilter", !!g);
+  for (const el of stage.querySelectorAll("[data-ground]")){
+    el.classList.toggle("vhit", !!g && el.getAttribute("data-ground")===g);
+  }
+  for (const b of legendEl.querySelectorAll(".venue")){
+    b.classList.toggle("sel", venuesOn && b.dataset.ground===venuePinned);
+  }
+}
+
+venueToggle.addEventListener("click", ()=>{
+  venuesOn = !venuesOn;
+  if (!venuesOn){ venuePinned = null; venueHover = null; }
+  venueToggle.classList.toggle("on", venuesOn);
+  venueToggle.setAttribute("aria-pressed", String(venuesOn));
+  venueToggle.textContent = venuesOn ? "Hide venues" : "Show venues";
+  legendEl.classList.toggle("on", venuesOn);
+  applyVenueHL();
+});
+// hover previews on desktop only — on touch, hover would fight the tap-to-pin
+legendEl.addEventListener("pointerover", e=>{
+  const b = e.target.closest(".venue");
+  if (b && e.pointerType!=="touch"){ venueHover = b.dataset.ground; applyVenueHL(); }
+});
+legendEl.addEventListener("pointerout", e=>{
+  if (e.target.closest(".venue") && e.pointerType!=="touch"){ venueHover = null; applyVenueHL(); }
+});
+legendEl.addEventListener("click", e=>{
+  const b = e.target.closest(".venue");
+  if (!b) return;
+  venuePinned = (venuePinned===b.dataset.ground) ? null : b.dataset.ground;
+  applyVenueHL();
+});
 
 /* ------------------------------- Update loop ------------------------------ */
 const statusEl = document.getElementById("status");
