@@ -109,8 +109,12 @@
   .tooltip .tt-venue{margin-top:4px;font-size:11px;color:#cfc9bd}
 
   /* Venue toggle + interactive legend: hovering/tapping a stadium pill spotlights
-     its matches on the bracket (everything else fades via .vfilter). */
+     its matches on the bracket (everything else fades via .vfilter). Each
+     spotlighted match also gets a gold capsule behind its two participants. */
   .conn,.dot,.center-line,.trophy{transition:opacity .2s ease}
+  .cap{fill:none;stroke:var(--gold);stroke-linecap:round;opacity:0;
+    transition:opacity .25s ease;pointer-events:none}
+  .stage.vfilter .cap.vhit{opacity:.3}
   .stage.vfilter .flag:not(.vhit){opacity:.18}
   .stage.vfilter .conn:not(.vhit),.stage.vfilter .dot:not(.vhit),
   .stage.vfilter .center-line:not(.vhit),.stage.vfilter .trophy:not(.vhit){opacity:.12}
@@ -439,6 +443,25 @@ function connectorPath(num){
   const ctrl = [2*P[0] - 0.5*(A1[0]+A2[0]), 2*P[1] - 0.5*(A1[1]+A2[1])];
   return `M${C1[0]} ${C1[1]} L${A1[0]} ${A1[1]} Q${ctrl[0]} ${ctrl[1]} ${A2[0]} ${A2[1]} L${C2[0]} ${C2[1]}`;
 }
+/* Capsule (FIFA-style lozenge) behind a match's two participant slots, used by
+   the venue spotlight. A thick round-capped arc stroke along the child ring
+   between the two participants reads as a pill bent along the ring; the final's
+   participants sit 180° apart, so its capsule runs straight through the center. */
+const CAP_W = {1:82, 2:72, 3:66, 4:64, 5:64}; // stroke width per match level
+function capsulePath(num){
+  const lvl = levelOf(num);
+  const R = RADIUS[lvl-1];
+  if (num===ROOT){
+    const [x1,y1] = pt(R, angleOf(101)), [x2,y2] = pt(R, angleOf(102));
+    return `M${x1} ${y1} L${x2} ${y2}`;
+  }
+  const [a1,a2] = R32SET.has(num)
+    ? [childFlagAngle(num,0), childFlagAngle(num,1)]
+    : [angleOf(CHILDREN[num][0]), angleOf(CHILDREN[num][1])];
+  const [x1,y1] = pt(R,a1), [x2,y2] = pt(R,a2);
+  return `M${x1} ${y1} A ${R} ${R} 0 0 ${a2>=a1?1:0} ${x2} ${y2}`;
+}
+
 // angle of one of a R32 node's two outer flags (slot 0/1)
 function childFlagAngle(num, slot){
   let n=0, target=-1;
@@ -480,9 +503,11 @@ function render(model){
   // Build connectors + dots/winner-flags for every match node
   let conns = "";
   let dots = "";
+  let caps = "";
   for (const num of NODE_NUMS){
     const lvl = levelOf(num);
     const gAttr = `data-ground="${escapeAttr(model[num].ground)}"`;
+    caps += `<path class="cap" ${gAttr} stroke-width="${CAP_W[lvl]}" d="${capsulePath(num)}"/>`;
     if (lvl<=4) conns += `<path class="conn" ${gAttr} d="${connectorPath(num)}"/>`;
     const ang = angleOf(num);
     if (num===ROOT) continue; // final handled at center
@@ -520,7 +545,7 @@ function render(model){
   }
 
   // Assemble SVG (lines + dots + trophy) then the flag overlay
-  let html = `<svg viewBox="0 0 1000 1000" role="img">${conns}${center}${dots}</svg>`;
+  let html = `<svg viewBox="0 0 1000 1000" role="img">${caps}${conns}${center}${dots}</svg>`;
   const allFlags = champFlag ? flags.concat([champFlag]) : flags;
   for (const fl of allFlags){
     const w = fl.cls.indexOf("champ")>=0 ? "w320" : "w160";
