@@ -54,6 +54,10 @@
   .conn{fill:none;stroke:var(--line);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
   .dot{fill:var(--line)}
   .center-line{stroke:var(--line);stroke-width:2.2}
+  /* A losing team's final leg — the connector arm it entered its last match on —
+     is gently grayed, so the bold lines trace only the winners advancing inward. */
+  .conn.lose{stroke:var(--muted)}
+  .center-line.lose{stroke:var(--muted)}
 
   /* Flags are HTML imgs positioned over the SVG so circular clipping is trivial */
   .flag{
@@ -496,21 +500,32 @@ function tipAttrs(tip, ground){
          `data-ground="${escapeAttr(ground||"")}"`;
 }
 
-function connectorPath(num){
+// The connector for a match is two arms — one per participant — that meet at the
+// parent node P. Returned separately (slot 0 first) so a losing team's arm can be
+// grayed on its own. The original single path drew A1->A2 as one quadratic through
+// P; splitting that quadratic at its midpoint (t=0.5, = P) via de Casteljau yields
+// the two arms with identical geometry, each ending exactly at P.
+function connectorArms(num){
   // child ring radius (outer) and this node's radius (inner)
   const lvl = levelOf(num);
   const Rc = RADIUS[lvl-1];
   const Rp = RADIUS[lvl];
-  const [c1,c2] = R32SET.has(num)
-    ? [{ang:childFlagAngle(num,0)},{ang:childFlagAngle(num,1)}]
-    : [{ang:angleOf(CHILDREN[num][0])},{ang:angleOf(CHILDREN[num][1])}];
+  const a1 = R32SET.has(num) ? childFlagAngle(num,0) : angleOf(CHILDREN[num][0]);
+  const a2 = R32SET.has(num) ? childFlagAngle(num,1) : angleOf(CHILDREN[num][1]);
   const ap = angleOf(num);
-  const A1 = pt(Rp, c1.ang), A2 = pt(Rp, c2.ang);
-  const C1 = pt(Rc, c1.ang), C2 = pt(Rc, c2.ang);
+  const A1 = pt(Rp, a1), A2 = pt(Rp, a2);
+  const C1 = pt(Rc, a1), C2 = pt(Rc, a2);
   const P  = pt(Rp, ap);
-  // quadratic control so the curve passes exactly through the parent node P
+  // quadratic control so the full curve passes exactly through the parent node P
   const ctrl = [2*P[0] - 0.5*(A1[0]+A2[0]), 2*P[1] - 0.5*(A1[1]+A2[1])];
-  return `M${C1[0]} ${C1[1]} L${A1[0]} ${A1[1]} Q${ctrl[0]} ${ctrl[1]} ${A2[0]} ${A2[1]} L${C2[0]} ${C2[1]}`;
+  // de Casteljau split at t=0.5: each half's control is the midpoint of an
+  // endpoint and the original control; both halves terminate at P.
+  const m1 = [(A1[0]+ctrl[0])/2, (A1[1]+ctrl[1])/2];
+  const m2 = [(A2[0]+ctrl[0])/2, (A2[1]+ctrl[1])/2];
+  return [
+    `M${C1[0]} ${C1[1]} L${A1[0]} ${A1[1]} Q${m1[0]} ${m1[1]} ${P[0]} ${P[1]}`,
+    `M${C2[0]} ${C2[1]} L${A2[0]} ${A2[1]} Q${m2[0]} ${m2[1]} ${P[0]} ${P[1]}`
+  ];
 }
 /* Capsule (FIFA-style lozenge) behind a match's two participant slots, used by
    the venue spotlight. A thick round-capped arc stroke along the child ring
@@ -580,7 +595,16 @@ function render(model){
     // the same tip data as a flag even while invisible
     caps += `<path class="cap${nationClass(model[num].ground)}" ${tipAttrs(tipFor(model,num), model[num].ground)} `+
             `stroke-width="${CAP_W[lvl]}" d="${capsulePath(num)}"/>`;
-    if (lvl<=4) conns += `<path class="conn" ${gAttr} d="${connectorPath(num)}"/>`;
+    if (lvl<=4){
+      // one arm per participant; gray the arm of the team that lost this match
+      // (participants[s] is decided but isn't the winner). Undecided arms stay bold.
+      const arms = connectorArms(num);
+      const w = model[num].winner, p = model[num].participants;
+      for (let s=0;s<2;s++){
+        const lose = w && p[s] && p[s]!==w ? " lose" : "";
+        conns += `<path class="conn${lose}" ${gAttr} d="${arms[s]}"/>`;
+      }
+    }
     const ang = angleOf(num);
     if (num===ROOT) continue; // final handled at center
     const [x,y] = pt(RADIUS[lvl], ang);
@@ -604,8 +628,12 @@ function render(model){
   const finalNode = model[ROOT];
   const finalG = `data-ground="${escapeAttr(finalNode.ground)}"`;
   const sf1 = pt(RADIUS[4], angleOf(101)), sf2 = pt(RADIUS[4], angleOf(102));
-  let center = `<line class="center-line" ${finalG} x1="${CX}" y1="${CY}" x2="${sf1[0]}" y2="${sf1[1]}"/>
-                <line class="center-line" ${finalG} x1="${CX}" y1="${CY}" x2="${sf2[0]}" y2="${sf2[1]}"/>`;
+  // gray the finalist's line whose team lost the final (mirrors the connector arms)
+  const fw = finalNode.winner, fp = finalNode.participants;
+  const lose1 = fw && fp[0] && fp[0]!==fw ? " lose" : "";
+  const lose2 = fw && fp[1] && fp[1]!==fw ? " lose" : "";
+  let center = `<line class="center-line${lose1}" ${finalG} x1="${CX}" y1="${CY}" x2="${sf1[0]}" y2="${sf1[1]}"/>
+                <line class="center-line${lose2}" ${finalG} x1="${CX}" y1="${CY}" x2="${sf2[0]}" y2="${sf2[1]}"/>`;
   let champFlag = null;
   if (finalNode.winner){
     newWinners[ROOT] = finalNode.winner;
