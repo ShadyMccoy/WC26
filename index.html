@@ -50,7 +50,12 @@
     margin:6px auto 4px;
   }
   .ball{position:absolute;inset:0;pointer-events:none}
-  .ball svg{width:100%;height:100%;display:block}
+  /* Two renderings of the ball; a body class (from the ?ball= query param)
+     picks one. Default is the bitmap; ?ball=drawn shows the inline SVG. */
+  .ball img{position:absolute;inset:0;width:100%;height:100%;opacity:.15;display:none}
+  .ball svg{width:100%;height:100%;display:none}
+  body.ball-photo .ball img{display:block}
+  body.ball-drawn .ball svg{display:block}
   .stage{position:absolute;inset:0}
   .stage svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
   .conn{fill:none;stroke:var(--line);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
@@ -133,11 +138,14 @@
   </header>
 
   <div class="stage-wrap">
-    <!-- Faint Trionda match ball, concentric with the bracket. Same 0..1000
-         coordinate space; ball radius 470 just circumscribes the outer flag
-         ring (flag centers at r=430). Everything is near-transparent so the
+    <!-- Faint Trionda match ball, concentric with the bracket (both are circles).
+         Two variants: a bitmap (assets/trionda-ball.png, the default) and an
+         inline-SVG emblem (?ball=drawn). If the bitmap fails to load the page
+         falls back to the drawn one. Everything is near-transparent so the
          bracket stays the foreground. -->
     <div class="ball" aria-hidden="true">
+      <img src="assets/trionda-ball.png" alt=""
+           onerror="document.body.classList.replace('ball-photo','ball-drawn')"/>
       <svg viewBox="0 0 1000 1000">
         <circle cx="500" cy="500" r="470" fill="#fff" opacity=".4"/>
         <!-- the ball's three wave panels, one per host nation -->
@@ -171,6 +179,9 @@
 
 <script>
 "use strict";
+// Pick the ball-background variant before the first paint settles.
+document.body.classList.add(
+  new URLSearchParams(location.search).get("ball")==="drawn" ? "ball-drawn" : "ball-photo");
 /* ============================================================================
    World Cup 2026 — Auto-updating circular bracket
    Pure static, client-side. See README / design doc for architecture.

@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+  <defs>
+    <radialGradient id="sheen" cx="38%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="55%" stop-color="#f8f8f9"/>
+      <stop offset="85%" stop-color="#ebebee"/>
+      <stop offset="100%" stop-color="#d2d2d8"/>
+    </radialGradient>
+    <clipPath id="ball"><circle cx="500" cy="500" r="478"/></clipPath>
+
+    <!-- one colored panel: rounded "pick" pointing at ball center, defined for the
+         UP sector; instances rotate it into place -->
+    <path id="pick" d="M500 440 C400 395 330 320 338 205 C344 125 420 88 500 86
+                       C580 88 656 125 662 205 C670 320 600 395 500 440 Z"/>
+    <clipPath id="pickClip"><use href="#pick"/></clipPath>
+    <!-- zigzag texture lines, clipped into each pick -->
+    <g id="zig">
+      <path d="M310 115 L357 91 L404 115 L451 91 L498 115 L545 91 L592 115 L639 91 L686 115" />
+      <path d="M310 161 L357 137 L404 161 L451 137 L498 161 L545 137 L592 161 L639 137 L686 161" />
+      <path d="M310 207 L357 183 L404 207 L451 183 L498 207 L545 183 L592 207 L639 183 L686 207" />
+      <path d="M310 253 L357 229 L404 253 L451 229 L498 253 L545 229 L592 253 L639 229 L686 253" />
+      <path d="M310 299 L357 275 L404 299 L451 275 L498 299 L545 275 L592 299 L639 275 L686 299" />
+      <path d="M310 345 L357 321 L404 345 L451 321 L498 345 L545 321 L592 345 L639 321 L686 345" />
+      <path d="M310 391 L357 367 L404 391 L451 367 L498 391 L545 367 L592 391 L639 367 L686 391" />
+      <path d="M310 437 L357 413 L404 437 L451 413 L498 437 L545 413 L592 437 L639 413 L686 437" />
+    </g>
+    <!-- seam: from center triangle vertex out to the rim, gentle S -->
+    <path id="seam" d="M500 445 C532 330 468 175 500 22"/>
+  </defs>
+
+  <circle cx="500" cy="500" r="478" fill="url(#sheen)"/>
+  <g clip-path="url(#ball)">
+    <!-- red panel (upper left => sector centered at 300deg) -->
+    <g transform="rotate(300,500,500)">
+      <use href="#pick" fill="#e23a2e"/>
+      <g clip-path="url(#pickClip)" fill="none" stroke="#8f1216" stroke-width="9" opacity=".75">
+        <use href="#zig"/>
+      </g>
+    </g>
+
+    <!-- blue panel (upper right => sector centered at 60deg) -->
+    <g transform="rotate(60,500,500)">
+      <use href="#pick" fill="#2f9fe0"/>
+      <g clip-path="url(#pickClip)" fill="none" stroke="#1a4fae" stroke-width="9" opacity=".75">
+        <use href="#zig"/>
+      </g>
+    </g>
+
+    <!-- green panel (bottom => sector centered at 180deg) -->
+    <g transform="rotate(180,500,500)">
+      <use href="#pick" fill="#2dbb66"/>
+      <g clip-path="url(#pickClip)" fill="none" stroke="#0d6b34" stroke-width="9" opacity=".75">
+        <use href="#zig"/>
+      </g>
+    </g>
+
+    <!-- partial wrap-around panels near the rim, hinting at the sphere -->
+    <g opacity=".9">
+      <path d="M60 760 C160 700 240 720 300 800 C220 880 120 880 60 820 Z" fill="#e23a2e"/>
+      <path d="M940 700 C860 660 790 690 750 770 C820 850 920 840 960 780 Z" fill="#2f9fe0"/>
+      <path d="M430 985 C450 900 540 870 620 910 C610 990 520 1030 430 985 Z" fill="#2dbb66"/>
+    </g>
+
+    <!-- sweeping accent ribbons along the seams -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M478 42 C310 85 185 225 152 415" stroke="#0e5c2f" stroke-width="16"/>
+      <path d="M522 42 C690 85 815 225 848 415" stroke="#5e0e14" stroke-width="16"/>
+      <path d="M160 690 C270 845 470 925 665 872" stroke="#173f8f" stroke-width="16"/>
+    </g>
+
+    <!-- seams: center triangle + three S-curved seams -->
+    <g fill="none" stroke="#b8b8be" stroke-width="6" stroke-linejoin="round">
+      <path d="M500 445 L547.6 527.5 L452.4 527.5 Z"/>
+      <use href="#seam"/>
+      <use href="#seam" transform="rotate(120,500,500)"/>
+      <use href="#seam" transform="rotate(240,500,500)"/>
+    </g>
+  </g>
+  <circle cx="500" cy="500" r="478" fill="none" stroke="#c6c6cc" stroke-width="3"/>
+</svg>

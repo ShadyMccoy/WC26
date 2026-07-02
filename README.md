@@ -80,6 +80,16 @@ hand-authored data is the team-name → ISO table (`ISO` in `index.html`); it mu
 match the exact strings the feed uses (e.g. `Bosnia & Herzegovina`, `England` →
 `gb-eng`).
 
+## Background
+
+A faint Trionda match ball sits concentric behind the bracket (both are
+circles). Two renderings live in the page: a bitmap (`assets/trionda-ball.png`,
+the default — a stylized recreation rasterized from `assets/trionda-ball.svg`,
+no trademarks) and an inline-SVG emblem (add `?ball=drawn` to the URL). If the
+bitmap fails to load, the page falls back to the drawn version. To use a real
+photo instead, just replace `assets/trionda-ball.png` (square image, ball
+filling the frame, transparent or white background).
+
 ## Update / failure behavior
 
 - Polls every **120 s**; diffs against the last results so only newly-resolved
