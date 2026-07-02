@@ -114,9 +114,13 @@
   /* Venue toggle + interactive legend: hovering/tapping a stadium pill spotlights
      its matches on the bracket (everything else fades via .vfilter). Each
      spotlighted match also gets a gold capsule behind its two participants. */
-  .conn,.dot,.center-line,.trophy{transition:opacity .2s ease}
+  .conn,.dot,.center-line,.trophy{transition:opacity .2s ease;pointer-events:none}
+  /* Capsules stay invisible until spotlighted, but their stroke is always the
+     hover/tap hitbox for the match tooltip (pointer-events:stroke hits the
+     stroke area regardless of opacity). Lines/dots above them never take the
+     pointer so they can't shadow the capsule underneath. */
   .cap{fill:none;stroke:var(--gold);stroke-linecap:round;opacity:0;
-    transition:opacity .25s ease;pointer-events:none}
+    transition:opacity .25s ease;pointer-events:stroke}
   .stage.vfilter .cap.vhit{opacity:.3}
   .stage.vfilter .flag:not(.vhit){opacity:.18}
   .stage.vfilter .conn:not(.vhit),.stage.vfilter .dot:not(.vhit),
@@ -448,6 +452,15 @@ function tipFor(model, num){
 }
 // leading-space CSS class for a tip's live/soon state (""/" live"/" soon")
 function hlClass(tip){ return tip.status ? " "+tip.status : ""; }
+// data attributes carrying a tip onto an element (flag or capsule). data-venue
+// is the tooltip's match venue; data-ground is the match AT this element's
+// position, which is what the venue filter spotlights.
+function tipAttrs(tip, ground){
+  return `data-round="${escapeAttr(tip.round)}" data-teams="${escapeAttr(tip.teams)}" `+
+         `data-score="${escapeAttr(tip.score||"")}" data-when="${escapeAttr(tip.when||"")}" `+
+         `data-status="${escapeAttr(tip.status||"")}" data-venue="${escapeAttr(tip.venue||"")}" `+
+         `data-ground="${escapeAttr(ground||"")}"`;
+}
 
 function connectorPath(num){
   // child ring radius (outer) and this node's radius (inner)
@@ -529,7 +542,10 @@ function render(model){
   for (const num of NODE_NUMS){
     const lvl = levelOf(num);
     const gAttr = `data-ground="${escapeAttr(model[num].ground)}"`;
-    caps += `<path class="cap" ${gAttr} stroke-width="${CAP_W[lvl]}" d="${capsulePath(num)}"/>`;
+    // the capsule is also the match's always-on tooltip hitbox, so it carries
+    // the same tip data as a flag even while invisible
+    caps += `<path class="cap" ${tipAttrs(tipFor(model,num), model[num].ground)} `+
+            `stroke-width="${CAP_W[lvl]}" d="${capsulePath(num)}"/>`;
     if (lvl<=4) conns += `<path class="conn" ${gAttr} d="${connectorPath(num)}"/>`;
     const ang = angleOf(num);
     if (num===ROOT) continue; // final handled at center
@@ -574,13 +590,8 @@ function render(model){
     const src = flagURL(fl.team, w);
     const left = (fl.x/1000*100).toFixed(3);
     const top  = (fl.y/1000*100).toFixed(3);
-    const t = fl.tip || {round:"",teams:fl.team,score:"",when:""};
-    const data = `data-round="${escapeAttr(t.round)}" data-teams="${escapeAttr(t.teams)}" `+
-                 `data-score="${escapeAttr(t.score||"")}" data-when="${escapeAttr(t.when||"")}" `+
-                 `data-status="${escapeAttr(t.status||"")}" data-venue="${escapeAttr(t.venue||"")}" `+
-                 // data-venue above = tooltip's match; data-ground = match AT this
-                 // node's position, which is what the venue filter spotlights
-                 `data-ground="${escapeAttr(fl.ground||"")}"`;
+    const t = fl.tip || {round:"",teams:fl.team,score:"",when:"",status:"",venue:""};
+    const data = tipAttrs(t, fl.ground);
     if (src){
       // on image error, fall back to a neutral circle so the bracket never gaps
       html += `<img class="flag ${fl.cls}" src="${src}" alt="${fl.team}" ${data} loading="lazy"
@@ -609,7 +620,7 @@ const tipEl = document.createElement("div");
 tipEl.className = "tooltip";
 document.body.appendChild(tipEl);
 
-function showTip(el){
+function showTip(el, ev){
   const d = el.dataset;
   if (!d || !d.teams) return;
   let scoreHTML;
@@ -627,39 +638,56 @@ function showTip(el){
     (d.round ? `<div class="tt-round">${escapeHTML(d.round)}</div>` : "") +
     `<div class="tt-teams">${escapeHTML(d.teams)}</div>` + scoreHTML +
     (d.venue ? `<div class="tt-venue">${escapeHTML(d.venue)}</div>` : "");
-  const r = el.getBoundingClientRect();
-  const cx = Math.min(Math.max(r.left + r.width/2, 8), window.innerWidth - 8);
-  const flip = r.top < 90; // near top edge -> show below the flag
+  positionTip(el, ev);
+  tipEl.classList.add("on");
+}
+/* Flags anchor the tip above their own center. Capsules are long arcs whose
+   bounding box says nothing useful, so their tip anchors at the pointer. */
+function positionTip(el, ev){
+  const isCap = el.classList.contains("cap");
+  const r = isCap ? null : el.getBoundingClientRect();
+  const ax     = isCap ? ev.clientX : r.left + r.width/2;
+  const top    = isCap ? ev.clientY : r.top;
+  const bottom = isCap ? ev.clientY : r.bottom;
+  const cx = Math.min(Math.max(ax, 8), window.innerWidth - 8);
+  const flip = top < 90; // near top edge -> show below the anchor
   tipEl.classList.toggle("below", flip);
   tipEl.style.left = cx + "px";
-  tipEl.style.top  = (flip ? r.bottom : r.top) + "px";
-  tipEl.classList.add("on");
+  tipEl.style.top  = (flip ? bottom : top) + "px";
 }
 function hideTip(){ tipEl.classList.remove("on"); }
 
-// hover (desktop)
+// hover (desktop) — both flags and the (invisible) match capsules carry tips
 stage.addEventListener("pointerover", e=>{
-  const el = e.target.closest(".flag");
-  if (el && e.pointerType!=="touch") showTip(el);
+  const el = e.target.closest(".flag,.cap");
+  if (el && e.pointerType!=="touch") showTip(el, e);
 });
 stage.addEventListener("pointerout", e=>{
-  if (e.target.closest(".flag") && e.pointerType!=="touch") hideTip();
+  if (e.target.closest(".flag,.cap") && e.pointerType!=="touch") hideTip();
+});
+// a capsule is a long arc, so let its tooltip follow the pointer along it
+stage.addEventListener("pointermove", e=>{
+  if (e.pointerType==="touch") return;
+  const el = e.target.closest(".cap");
+  if (el && tipEl.classList.contains("on")) positionTip(el, e);
 });
 // tap (touch): toggle, and dismiss when tapping elsewhere
 stage.addEventListener("click", e=>{
-  const el = e.target.closest(".flag");
-  if (el){ e.stopPropagation(); tipEl.classList.contains("on") ? hideTip() : showTip(el); }
+  const el = e.target.closest(".flag,.cap");
+  if (el){ e.stopPropagation(); tipEl.classList.contains("on") ? hideTip() : showTip(el, e); }
 });
 document.addEventListener("click", ()=>hideTip());
 window.addEventListener("scroll", hideTip, {passive:true});
 
 /* ---- Venue toggle + interactive legend (stadium spotlight) ----
-   One pill per stadium hosting bracket matches. Hover previews (desktop),
-   click/tap pins; clicking the pinned pill unpins. Highlight = every element
-   tagged with that ground gets .vhit while .vfilter fades the rest. */
+   One pill per stadium hosting bracket matches. Hover previews (desktop);
+   click/tap pins one stadium; ctrl/cmd/shift-click toggles a stadium in and
+   out of the pinned set, so several can be spotlit at once. Clicking the only
+   pinned pill unpins. Highlight = every element tagged with a selected ground
+   gets .vhit while .vfilter fades the rest. */
 const venueToggle = document.getElementById("venueToggle");
 const legendEl = document.getElementById("venueLegend");
-let venuesOn = false, venuePinned = null, venueHover = null;
+let venuesOn = false, venuePinned = new Set(), venueHover = null;
 let legendHTML = ""; // rebuild the pills only when the feed's venues change
 
 function buildLegend(model){
@@ -668,30 +696,33 @@ function buildLegend(model){
     const g = model[num].ground;
     if (g) counts[g] = (counts[g]||0)+1;
   }
-  if (venuePinned && !counts[venuePinned]) venuePinned = null;
+  for (const g of [...venuePinned]) if (!counts[g]) venuePinned.delete(g);
   const keys = Object.keys(counts).sort((a,b)=>venueLabel(a).localeCompare(venueLabel(b)));
   let html = "";
   for (const g of keys){
-    html += `<button class="venue" data-ground="${escapeAttr(g)}">`+
+    html += `<button class="venue" data-ground="${escapeAttr(g)}" `+
+            `title="Click to spotlight · Ctrl/Cmd-click to add">`+
             `${escapeHTML(venueLabel(g))}<span class="n">${counts[g]}</span></button>`;
   }
   if (html !== legendHTML){ legendEl.innerHTML = html; legendHTML = html; }
 }
 
 function applyVenueHL(){
-  const g = venuesOn ? (venueHover || venuePinned) : null;
-  stage.classList.toggle("vfilter", !!g);
+  // spotlight = pinned set, plus the hovered pill as a live preview
+  const sel = new Set(venuesOn ? venuePinned : []);
+  if (venuesOn && venueHover) sel.add(venueHover);
+  stage.classList.toggle("vfilter", sel.size>0);
   for (const el of stage.querySelectorAll("[data-ground]")){
-    el.classList.toggle("vhit", !!g && el.getAttribute("data-ground")===g);
+    el.classList.toggle("vhit", sel.has(el.getAttribute("data-ground")));
   }
   for (const b of legendEl.querySelectorAll(".venue")){
-    b.classList.toggle("sel", venuesOn && b.dataset.ground===venuePinned);
+    b.classList.toggle("sel", venuesOn && venuePinned.has(b.dataset.ground));
   }
 }
 
 venueToggle.addEventListener("click", ()=>{
   venuesOn = !venuesOn;
-  if (!venuesOn){ venuePinned = null; venueHover = null; }
+  if (!venuesOn){ venuePinned.clear(); venueHover = null; }
   venueToggle.classList.toggle("on", venuesOn);
   venueToggle.setAttribute("aria-pressed", String(venuesOn));
   venueToggle.textContent = venuesOn ? "Hide venues" : "Show venues";
@@ -709,7 +740,15 @@ legendEl.addEventListener("pointerout", e=>{
 legendEl.addEventListener("click", e=>{
   const b = e.target.closest(".venue");
   if (!b) return;
-  venuePinned = (venuePinned===b.dataset.ground) ? null : b.dataset.ground;
+  const g = b.dataset.ground;
+  if (e.ctrlKey || e.metaKey || e.shiftKey){
+    // modifier-click: toggle this stadium in/out of the multi-selection
+    venuePinned.has(g) ? venuePinned.delete(g) : venuePinned.add(g);
+  } else if (venuePinned.size===1 && venuePinned.has(g)){
+    venuePinned.clear(); // clicking the only pinned pill unpins
+  } else {
+    venuePinned = new Set([g]); // plain click replaces the selection
+  }
   applyVenueHL();
 });
 
