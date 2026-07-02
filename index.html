@@ -205,22 +205,22 @@ function flagURL(team, w){ // w = flagcdn width bucket
    the exact strings the feed uses; an unknown ground falls back to the raw
    feed string so venue info degrades gracefully rather than disappearing. */
 const STADIUM = {
-  "Atlanta":"Mercedes-Benz Stadium · Atlanta",
-  "Boston (Foxborough)":"Gillette Stadium · Foxborough",
-  "Dallas (Arlington)":"AT&T Stadium · Arlington",
-  "Guadalajara (Zapopan)":"Estadio Akron · Guadalajara",
+  "Atlanta":"Atlanta",
+  "Boston (Foxborough)":"Boston",
+  "Dallas (Arlington)":"Dallas",
+  "Guadalajara (Zapopan)":"Guadalajara",
   "Houston":"NRG Stadium · Houston",
-  "Kansas City":"Arrowhead Stadium · Kansas City",
-  "Los Angeles (Inglewood)":"SoFi Stadium · Inglewood",
-  "Mexico City":"Estadio Azteca · Mexico City",
-  "Miami (Miami Gardens)":"Hard Rock Stadium · Miami Gardens",
-  "Monterrey (Guadalupe)":"Estadio BBVA · Monterrey",
-  "New York/New Jersey (East Rutherford)":"MetLife Stadium · East Rutherford",
-  "Philadelphia":"Lincoln Financial Field · Philadelphia",
-  "San Francisco Bay Area (Santa Clara)":"Levi's Stadium · Santa Clara",
-  "Seattle":"Lumen Field · Seattle",
-  "Toronto":"BMO Field · Toronto",
-  "Vancouver":"BC Place · Vancouver"
+  "Kansas City":"Kansas City",
+  "Los Angeles (Inglewood)":"Los Angeles",
+  "Mexico City":"Mexico City",
+  "Miami (Miami Gardens)":"Miami",
+  "Monterrey (Guadalupe)":"Monterrey",
+  "New York/New Jersey (East Rutherford)":"New York/New Jersey",
+  "Philadelphia":"Philadelphia",
+  "San Francisco Bay Area (Santa Clara)":"San Francisco",
+  "Seattle":"Seattle",
+  "Toronto":"Toronto",
+  "Vancouver":"Vancouver"
 };
 function venueLabel(ground){ return ground ? (STADIUM[ground] || ground) : ""; }
 
