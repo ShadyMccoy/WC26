@@ -106,6 +106,7 @@
     background:var(--live);margin-right:6px;vertical-align:middle;animation:livePulse 1.7s ease-in-out infinite}
   .tooltip .tt-soon{margin-top:2px;font-size:10px;letter-spacing:.7px;text-transform:uppercase;
     font-weight:700;color:var(--gold)}
+  .tooltip .tt-venue{margin-top:4px;font-size:11px;color:#cfc9bd}
 
   footer{
     color:var(--muted);font-size:12.5px;text-align:center;
@@ -168,6 +169,29 @@ function flagURL(team, w){ // w = flagcdn width bucket
   const iso = ISO[team];
   return iso ? `https://flagcdn.com/${w}/${iso}.png` : "";
 }
+
+/* Feed "ground" (host city) -> stadium name. Hand-authored like ISO, keyed on
+   the exact strings the feed uses; an unknown ground falls back to the raw
+   feed string so venue info degrades gracefully rather than disappearing. */
+const STADIUM = {
+  "Atlanta":"Mercedes-Benz Stadium · Atlanta",
+  "Boston (Foxborough)":"Gillette Stadium · Foxborough",
+  "Dallas (Arlington)":"AT&T Stadium · Arlington",
+  "Guadalajara (Zapopan)":"Estadio Akron · Guadalajara",
+  "Houston":"NRG Stadium · Houston",
+  "Kansas City":"Arrowhead Stadium · Kansas City",
+  "Los Angeles (Inglewood)":"SoFi Stadium · Inglewood",
+  "Mexico City":"Estadio Azteca · Mexico City",
+  "Miami (Miami Gardens)":"Hard Rock Stadium · Miami Gardens",
+  "Monterrey (Guadalupe)":"Estadio BBVA · Monterrey",
+  "New York/New Jersey (East Rutherford)":"MetLife Stadium · East Rutherford",
+  "Philadelphia":"Lincoln Financial Field · Philadelphia",
+  "San Francisco Bay Area (Santa Clara)":"Levi's Stadium · Santa Clara",
+  "Seattle":"Lumen Field · Seattle",
+  "Toronto":"BMO Field · Toronto",
+  "Vancouver":"BC Place · Vancouver"
+};
+function venueLabel(ground){ return ground ? (STADIUM[ground] || ground) : ""; }
 
 /* ---- Static bracket skeleton (design §5): match num -> [childNum, childNum].
    Fixed and known in advance; results only overlay on top. R32 (73–88) are
@@ -302,7 +326,7 @@ function buildModel(feed){
     const m = feed[num] || {};
     const sc = m.score;
     node[num] = { participants:p, winner:winner(num), score:sc, label:scoreLabel(sc),
-                  date:m.date||"", time:m.time||"" };
+                  date:m.date||"", time:m.time||"", ground:m.ground||"" };
   }
   return node;
 }
@@ -362,7 +386,7 @@ function tipFor(model, num){
   const n = model[num];
   const teams = `${n.participants[0]||"TBD"} vs ${n.participants[1]||"TBD"}`;
   return { round:roundName(num), teams, score:n.label, when:n.label?"":kickoff(n),
-           status:matchStatus(n, nowMs) };
+           status:matchStatus(n, nowMs), venue:venueLabel(n.ground) };
 }
 // leading-space CSS class for a tip's live/soon state (""/" live"/" soon")
 function hlClass(tip){ return tip.status ? " "+tip.status : ""; }
@@ -473,7 +497,7 @@ function render(model){
     const t = fl.tip || {round:"",teams:fl.team,score:"",when:""};
     const data = `data-round="${escapeAttr(t.round)}" data-teams="${escapeAttr(t.teams)}" `+
                  `data-score="${escapeAttr(t.score||"")}" data-when="${escapeAttr(t.when||"")}" `+
-                 `data-status="${escapeAttr(t.status||"")}"`;
+                 `data-status="${escapeAttr(t.status||"")}" data-venue="${escapeAttr(t.venue||"")}"`;
     if (src){
       // on image error, fall back to a neutral circle so the bracket never gaps
       html += `<img class="flag ${fl.cls}" src="${src}" alt="${fl.team}" ${data} loading="lazy"
@@ -515,7 +539,8 @@ function showTip(el){
   }
   tipEl.innerHTML =
     (d.round ? `<div class="tt-round">${escapeHTML(d.round)}</div>` : "") +
-    `<div class="tt-teams">${escapeHTML(d.teams)}</div>` + scoreHTML;
+    `<div class="tt-teams">${escapeHTML(d.teams)}</div>` + scoreHTML +
+    (d.venue ? `<div class="tt-venue">${escapeHTML(d.venue)}</div>` : "");
   const r = el.getBoundingClientRect();
   const cx = Math.min(Math.max(r.left + r.width/2, 8), window.innerWidth - 8);
   const flip = r.top < 90; // near top edge -> show below the flag
