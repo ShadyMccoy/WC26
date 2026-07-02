@@ -36,7 +36,10 @@
   header .sub{
     margin-top:4px;color:var(--muted);font-size:13px;
   }
-  /* Square responsive stage that holds the SVG (lines/dots/trophy) and the flag overlay */
+  /* Square responsive stage that holds the SVG (lines/dots/trophy) and the flag overlay.
+     The vw/vh width is only a no-JS fallback: viewport units track browser zoom, which
+     would pin the bracket to the screen. fitStage() overrides it with an absolute px
+     width so Ctrl +/- zooms the bracket like normal content. */
   .stage{
     position:relative;
     width:min(94vw, 86vh, 920px);
@@ -309,6 +312,23 @@ function buildModel(feed){
 
 /* ------------------------------ Rendering --------------------------------- */
 const stage = document.getElementById("stage");
+
+/* Size the stage in absolute px. Viewport units (vw/vh) shrink under browser
+   zoom, which kept the bracket visually glued to the screen while px-sized
+   text grew. Instead: fit once in px, re-fit on genuine window resizes, and
+   skip re-fitting when the resize came from zoom (devicePixelRatio changed)
+   so the bracket scales with the rest of the page. */
+function fitStage(){
+  const s = Math.min(window.innerWidth*0.94, window.innerHeight*0.86, 920);
+  stage.style.width = s + "px";
+}
+let stageDPR = window.devicePixelRatio || 1;
+fitStage();
+window.addEventListener("resize", ()=>{
+  const dpr = window.devicePixelRatio || 1;
+  if (dpr !== stageDPR){ stageDPR = dpr; return; } // zoom, not a resize
+  fitStage();
+});
 let prevWinners = {}; // num -> winner team, for diff/pop animation
 let nowMs = Date.now(); // one consistent clock per render, for live/soon highlighting
 
