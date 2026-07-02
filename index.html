@@ -691,24 +691,39 @@ function positionTip(el, ev){
 }
 function hideTip(){ tipEl.classList.remove("on"); }
 
-// hover (desktop) — both flags and the (invisible) match capsules carry tips
+// hover (desktop) — both flags and the (invisible) match capsules carry tips.
+// A capsule's tip waits for a settled hover before appearing, so sweeping the
+// pointer across the bracket doesn't flash tooltips from every arc it crosses.
+const CAP_TIP_DELAY = 600; // ms of steady hover before a capsule tip shows
+let capTipTimer = null, capTipEv = null;
+function cancelCapTip(){ clearTimeout(capTipTimer); capTipTimer = null; }
 stage.addEventListener("pointerover", e=>{
   const el = e.target.closest(".flag,.cap");
-  if (el && e.pointerType!=="touch") showTip(el, e);
+  if (!el || e.pointerType==="touch") return;
+  if (el.classList.contains("cap")){
+    cancelCapTip();
+    capTipEv = e;
+    capTipTimer = setTimeout(()=>{ capTipTimer = null; showTip(el, capTipEv); }, CAP_TIP_DELAY);
+  } else {
+    showTip(el, e);
+  }
 });
 stage.addEventListener("pointerout", e=>{
-  if (e.target.closest(".flag,.cap") && e.pointerType!=="touch") hideTip();
+  if (e.target.closest(".flag,.cap") && e.pointerType!=="touch"){ cancelCapTip(); hideTip(); }
 });
 // a capsule is a long arc, so let its tooltip follow the pointer along it
+// (and keep a still-pending tip anchored to where the pointer settles)
 stage.addEventListener("pointermove", e=>{
   if (e.pointerType==="touch") return;
   const el = e.target.closest(".cap");
-  if (el && tipEl.classList.contains("on")) positionTip(el, e);
+  if (!el) return;
+  capTipEv = e;
+  if (tipEl.classList.contains("on")) positionTip(el, e);
 });
 // tap (touch): toggle, and dismiss when tapping elsewhere
 stage.addEventListener("click", e=>{
   const el = e.target.closest(".flag,.cap");
-  if (el){ e.stopPropagation(); tipEl.classList.contains("on") ? hideTip() : showTip(el, e); }
+  if (el){ e.stopPropagation(); cancelCapTip(); tipEl.classList.contains("on") ? hideTip() : showTip(el, e); }
 });
 document.addEventListener("click", ()=>hideTip());
 window.addEventListener("scroll", hideTip, {passive:true});
