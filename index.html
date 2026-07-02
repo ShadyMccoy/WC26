@@ -594,7 +594,11 @@ function render(model){
       // outer flag. PARENT[num] is the next-round match; fall back to num if absent.
       const nextNum = PARENT[num];
       const tip = nextNum!=null ? tipFor(model,nextNum) : tipFor(model,num);
-      flags.push({x,y,team:w,cls:`r${lvl}${pop}${hlClass(tip)}`, tip, ground:model[num].ground});
+      // Gold "win" ring when this team also won its NEXT match — the same rule the
+      // R32 ring uses (winner of two adjacent participants). So on each ring inward,
+      // the flag that advanced out of that round is highlighted.
+      const advanced = nextNum!=null && model[nextNum] && model[nextNum].winner===w ? " win" : "";
+      flags.push({x,y,team:w,cls:`r${lvl}${advanced}${pop}${hlClass(tip)}`, tip, ground:model[num].ground});
     } else {
       dots += `<circle class="dot" ${gAttr} cx="${x}" cy="${y}" r="3.4"/>`;
     }
