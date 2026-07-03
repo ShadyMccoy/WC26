@@ -84,15 +84,15 @@
      static gold ring (today, <12h); .deck = the same gold gently pulsing (on
      deck, <4h); .live = pulsing red halo. */
   .flag.soon{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 1px 3px rgba(0,0,0,.18)}
-  .flag.deck{border-color:var(--gold);animation:deckPulse 1.9s ease-in-out infinite}
-  .flag.live{border-color:var(--live);animation:livePulse 1.7s ease-in-out infinite}
+  .flag.deck{border-color:var(--gold);animation:deckPulse 4s ease-in-out infinite}
+  .flag.live{border-color:var(--live);animation:livePulse 4s ease-in-out infinite}
   @keyframes deckPulse{
-    0%,100%{box-shadow:0 0 0 2px var(--gold),0 0 5px 1px rgba(200,162,74,.30),0 1px 3px rgba(0,0,0,.18)}
-    50%{box-shadow:0 0 0 3px var(--gold),0 0 12px 4px rgba(200,162,74,.55),0 1px 3px rgba(0,0,0,.18)}
+    0%,30%,100%{box-shadow:0 0 0 2px var(--gold),0 0 5px 1px rgba(200,162,74,.30),0 1px 3px rgba(0,0,0,.18)}
+    15%{box-shadow:0 0 0 3px var(--gold),0 0 12px 4px rgba(200,162,74,.55),0 1px 3px rgba(0,0,0,.18)}
   }
   @keyframes livePulse{
-    0%,100%{box-shadow:0 0 0 2px var(--live),0 0 5px 1px rgba(209,73,58,.30),0 1px 3px rgba(0,0,0,.18)}
-    50%{box-shadow:0 0 0 3px var(--live),0 0 12px 4px rgba(209,73,58,.55),0 1px 3px rgba(0,0,0,.18)}
+    0%,30%,100%{box-shadow:0 0 0 2px var(--live),0 0 5px 1px rgba(209,73,58,.30),0 1px 3px rgba(0,0,0,.18)}
+    15%{box-shadow:0 0 0 3px var(--live),0 0 12px 4px rgba(209,73,58,.55),0 1px 3px rgba(0,0,0,.18)}
   }
 
   /* Custom hover/tap tooltip showing the match score */
@@ -684,7 +684,7 @@ function showTip(el, ev){
     scoreHTML = `<div class="tt-score live"><span class="live-dot"></span>Live</div>`
               + (d.when ? `<div class="tt-soon">Kicked off · ${escapeHTML(d.when)}</div>` : "");
   } else {
-    const ahead = d.status === "deck" ? "On deck" : d.status === "soon" ? "Today" : "";
+    const ahead = d.status === "deck" ? "Next" : d.status === "soon" ? "Today" : "";
     scoreHTML = `<div class="tt-score pending">${escapeHTML(d.when || "Not played yet")}</div>`
               + (ahead ? `<div class="tt-soon">${ahead}</div>` : "");
   }
