@@ -117,20 +117,22 @@
 
   /* Venue toggle + interactive legend: every match carries a "stadium crescent"
      behind its two participants, tinted by the host nation (Mexico green / USA
-     blue / Canada red). All crescents show by default; hovering/tapping a stadium
-     pill spotlights its matches (they pop while the rest fade via .vfilter). */
+     blue / Canada red). Crescents stay hidden until the venue toggle is on;
+     turning it on reveals them all at once, and hovering/tapping a stadium pill
+     spotlights its matches (they pop while the rest fade via .vfilter). */
   .conn,.dot,.center-line,.trophy{transition:opacity .2s ease;pointer-events:none}
   /* A crescent's stroke is always the hover/tap hitbox for the match tooltip
      (pointer-events:stroke hits the stroke area regardless of opacity). Lines/dots
      above them never take the pointer so they can't shadow the crescent underneath. */
-  .cap{fill:none;stroke:var(--gold);stroke-linecap:round;opacity:.3;
+  .cap{fill:none;stroke:var(--gold);stroke-linecap:round;opacity:0;
     transition:opacity .25s ease;pointer-events:stroke}
   .cap.mx{stroke:var(--mx)}
   .cap.us{stroke:var(--us)}
   .cap.ca{stroke:var(--ca)}
-  /* Spotlight: selected crescents brighten, the rest fade back. With nothing
-     selected there is no .vfilter, so every crescent stays at its default — i.e.
-     "no venues selected" reads the same as "all venues selected". */
+  /* Venue mode on: show every crescent. With nothing pinned there is no .vfilter,
+     so they all stay lit — "no venues selected" reads the same as "all selected". */
+  .stage.venues-on .cap{opacity:.3}
+  /* Spotlight: a pinned/hovered stadium's crescents brighten, the rest fade back. */
   .stage.vfilter .cap{opacity:.1}
   .stage.vfilter .cap.vhit{opacity:.42}
   .stage.vfilter .flag:not(.vhit){opacity:.18}
@@ -767,6 +769,9 @@ function applyVenueHL(){
   // spotlight = pinned set, plus the hovered pill as a live preview
   const sel = new Set(venuesOn ? venuePinned : []);
   if (venuesOn && venueHover) sel.add(venueHover);
+  // venues-on reveals every crescent; vfilter (something actually pinned/hovered)
+  // then narrows the spotlight to the selection.
+  stage.classList.toggle("venues-on", venuesOn);
   stage.classList.toggle("vfilter", sel.size>0);
   for (const el of stage.querySelectorAll("[data-ground]")){
     el.classList.toggle("vhit", sel.has(el.getAttribute("data-ground")));
