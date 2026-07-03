@@ -115,21 +115,26 @@
     font-weight:700;color:var(--gold)}
   .tooltip .tt-venue{margin-top:4px;font-size:11px;color:#cfc9bd}
 
-  /* Venue toggle + interactive legend: hovering/tapping a stadium pill spotlights
-     its matches on the bracket (everything else fades via .vfilter). Each
-     spotlighted match also gets a capsule behind its two participants, tinted
-     by the stadium's host nation (Mexico green / USA blue / Canada red). */
+  /* Venue toggle + interactive legend: every match carries a "stadium crescent"
+     behind its two participants, tinted by the host nation (Mexico green / USA
+     blue / Canada red). Crescents stay hidden until the venue toggle is on;
+     turning it on reveals them all at once, and hovering/tapping a stadium pill
+     spotlights its matches (they pop while the rest fade via .vfilter). */
   .conn,.dot,.center-line,.trophy{transition:opacity .2s ease;pointer-events:none}
-  /* Capsules stay invisible until spotlighted, but their stroke is always the
-     hover/tap hitbox for the match tooltip (pointer-events:stroke hits the
-     stroke area regardless of opacity). Lines/dots above them never take the
-     pointer so they can't shadow the capsule underneath. */
+  /* A crescent's stroke is always the hover/tap hitbox for the match tooltip
+     (pointer-events:stroke hits the stroke area regardless of opacity). Lines/dots
+     above them never take the pointer so they can't shadow the crescent underneath. */
   .cap{fill:none;stroke:var(--gold);stroke-linecap:round;opacity:0;
     transition:opacity .25s ease;pointer-events:stroke}
   .cap.mx{stroke:var(--mx)}
   .cap.us{stroke:var(--us)}
   .cap.ca{stroke:var(--ca)}
-  .stage.vfilter .cap.vhit{opacity:.3}
+  /* Venue mode on: show every crescent. With nothing pinned there is no .vfilter,
+     so they all stay lit — "no venues selected" reads the same as "all selected". */
+  .stage.venues-on .cap{opacity:.3}
+  /* Spotlight: a pinned/hovered stadium's crescents brighten, the rest fade back. */
+  .stage.vfilter .cap{opacity:.1}
+  .stage.vfilter .cap.vhit{opacity:.42}
   .stage.vfilter .flag:not(.vhit){opacity:.18}
   .stage.vfilter .conn:not(.vhit),.stage.vfilter .dot:not(.vhit),
   .stage.vfilter .center-line:not(.vhit),.stage.vfilter .trophy:not(.vhit){opacity:.12}
@@ -764,6 +769,9 @@ function applyVenueHL(){
   // spotlight = pinned set, plus the hovered pill as a live preview
   const sel = new Set(venuesOn ? venuePinned : []);
   if (venuesOn && venueHover) sel.add(venueHover);
+  // venues-on reveals every crescent; vfilter (something actually pinned/hovered)
+  // then narrows the spotlight to the selection.
+  stage.classList.toggle("venues-on", venuesOn);
   stage.classList.toggle("vfilter", sel.size>0);
   for (const el of stage.querySelectorAll("[data-ground]")){
     el.classList.toggle("vhit", sel.has(el.getAttribute("data-ground")));
