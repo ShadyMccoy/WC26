@@ -115,21 +115,24 @@
     font-weight:700;color:var(--gold)}
   .tooltip .tt-venue{margin-top:4px;font-size:11px;color:#cfc9bd}
 
-  /* Venue toggle + interactive legend: hovering/tapping a stadium pill spotlights
-     its matches on the bracket (everything else fades via .vfilter). Each
-     spotlighted match also gets a capsule behind its two participants, tinted
-     by the stadium's host nation (Mexico green / USA blue / Canada red). */
+  /* Venue toggle + interactive legend: every match carries a "stadium crescent"
+     behind its two participants, tinted by the host nation (Mexico green / USA
+     blue / Canada red). All crescents show by default; hovering/tapping a stadium
+     pill spotlights its matches (they pop while the rest fade via .vfilter). */
   .conn,.dot,.center-line,.trophy{transition:opacity .2s ease;pointer-events:none}
-  /* Capsules stay invisible until spotlighted, but their stroke is always the
-     hover/tap hitbox for the match tooltip (pointer-events:stroke hits the
-     stroke area regardless of opacity). Lines/dots above them never take the
-     pointer so they can't shadow the capsule underneath. */
-  .cap{fill:none;stroke:var(--gold);stroke-linecap:round;opacity:0;
+  /* A crescent's stroke is always the hover/tap hitbox for the match tooltip
+     (pointer-events:stroke hits the stroke area regardless of opacity). Lines/dots
+     above them never take the pointer so they can't shadow the crescent underneath. */
+  .cap{fill:none;stroke:var(--gold);stroke-linecap:round;opacity:.3;
     transition:opacity .25s ease;pointer-events:stroke}
   .cap.mx{stroke:var(--mx)}
   .cap.us{stroke:var(--us)}
   .cap.ca{stroke:var(--ca)}
-  .stage.vfilter .cap.vhit{opacity:.3}
+  /* Spotlight: selected crescents brighten, the rest fade back. With nothing
+     selected there is no .vfilter, so every crescent stays at its default — i.e.
+     "no venues selected" reads the same as "all venues selected". */
+  .stage.vfilter .cap{opacity:.1}
+  .stage.vfilter .cap.vhit{opacity:.42}
   .stage.vfilter .flag:not(.vhit){opacity:.18}
   .stage.vfilter .conn:not(.vhit),.stage.vfilter .dot:not(.vhit),
   .stage.vfilter .center-line:not(.vhit),.stage.vfilter .trophy:not(.vhit){opacity:.12}
