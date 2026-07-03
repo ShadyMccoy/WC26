@@ -684,7 +684,7 @@ function showTip(el, ev){
     scoreHTML = `<div class="tt-score live"><span class="live-dot"></span>Live</div>`
               + (d.when ? `<div class="tt-soon">Kicked off · ${escapeHTML(d.when)}</div>` : "");
   } else {
-    const ahead = d.status === "deck" ? "On deck" : d.status === "soon" ? "Today" : "";
+    const ahead = d.status === "deck" ? "Next" : d.status === "soon" ? "Today" : "";
     scoreHTML = `<div class="tt-score pending">${escapeHTML(d.when || "Not played yet")}</div>`
               + (ahead ? `<div class="tt-soon">${ahead}</div>` : "");
   }
