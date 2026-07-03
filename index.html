@@ -471,7 +471,7 @@ function kickoff(node){ // -> e.g. "28 Jun · 12:00 PDT" in the viewer's own tim
 // Highlight windows: a match is "live" from kickoff until this long after (covers
 // play + the feed's own lag before a final score lands); "soon" this far ahead.
 const LIVE_MS = 150*60000; // 2.5 h
-const SOON_MS = 120*60000; // 2 h
+const SOON_MS = 720*60000; // 12 h
 // "live" | "soon" | "" for a match node, based on the viewer's clock. Only matches
 // with both teams known and no result yet can be highlighted.
 function matchStatus(node, now){
