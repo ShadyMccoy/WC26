@@ -13,7 +13,6 @@
     --muted:#9a948a;
     --gold:#c8a24a;
     --live:#d1493a;
-    --deck:#d4762f;
     /* Host-nation tints for the venue legend + spotlight capsules */
     --mx:#3d8b57;
     --us:#5471a8;
@@ -81,12 +80,16 @@
   .flag.win{border-color:var(--gold)}
   .flag.pop{animation:pop .55s cubic-bezier(.2,1.5,.4,1)}
   @keyframes pop{0%{transform:translate(-50%,-50%) scale(.1);opacity:0}60%{transform:translate(-50%,-50%) scale(1.18)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
-  /* Subtle status cues for the two teams about to play a match. Warm heat
-     ramp — closer = hotter: .soon = soft gold ring (today, <12h);
-     .deck = solid orange ring (on deck, <4h); .live = pulsing red halo. */
+  /* Subtle status cues for the two teams about to play a match. .soon = soft
+     static gold ring (today, <12h); .deck = the same gold gently pulsing (on
+     deck, <4h); .live = pulsing red halo. */
   .flag.soon{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 1px 3px rgba(0,0,0,.18)}
-  .flag.deck{border-color:var(--deck);box-shadow:0 0 0 2px var(--deck),0 0 6px 1px rgba(212,118,47,.35),0 1px 3px rgba(0,0,0,.18)}
+  .flag.deck{border-color:var(--gold);animation:deckPulse 1.9s ease-in-out infinite}
   .flag.live{border-color:var(--live);animation:livePulse 1.7s ease-in-out infinite}
+  @keyframes deckPulse{
+    0%,100%{box-shadow:0 0 0 2px var(--gold),0 0 5px 1px rgba(200,162,74,.30),0 1px 3px rgba(0,0,0,.18)}
+    50%{box-shadow:0 0 0 3px var(--gold),0 0 12px 4px rgba(200,162,74,.55),0 1px 3px rgba(0,0,0,.18)}
+  }
   @keyframes livePulse{
     0%,100%{box-shadow:0 0 0 2px var(--live),0 0 5px 1px rgba(209,73,58,.30),0 1px 3px rgba(0,0,0,.18)}
     50%{box-shadow:0 0 0 3px var(--live),0 0 12px 4px rgba(209,73,58,.55),0 1px 3px rgba(0,0,0,.18)}
