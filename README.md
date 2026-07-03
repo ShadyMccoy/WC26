@@ -80,6 +80,7 @@ hand-authored data is the team-name → ISO table (`ISO` in `index.html`); it mu
 match the exact strings the feed uses (e.g. `Bosnia & Herzegovina`, `England` →
 `gb-eng`).
 
+
 ## Update / failure behavior
 
 - Polls every **120 s**; diffs against the last results so only newly-resolved
