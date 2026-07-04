@@ -238,6 +238,25 @@ function flagURL(team, w){ // w = flagcdn width bucket
   return iso ? `https://flagcdn.com/${w}/${iso}.png` : "";
 }
 
+/* Team name -> FIFA trigram (the official three-letter codes, e.g. FRA, PAR).
+   Hand-authored like ISO, keyed on the exact feed strings, and used to compact
+   an undecided tooltip side into its feeder matchup ("PAR/FRA vs Morocco"). */
+const FIFA = {
+  "South Africa":"RSA","Canada":"CAN","Germany":"GER","Paraguay":"PAR",
+  "Netherlands":"NED","Morocco":"MAR","Brazil":"BRA","Japan":"JPN",
+  "France":"FRA","Sweden":"SWE","Ivory Coast":"CIV","Norway":"NOR",
+  "Mexico":"MEX","Ecuador":"ECU","England":"ENG","DR Congo":"COD",
+  "USA":"USA","Bosnia & Herzegovina":"BIH","Belgium":"BEL","Senegal":"SEN",
+  "Portugal":"POR","Croatia":"CRO","Spain":"ESP","Austria":"AUT",
+  "Switzerland":"SUI","Algeria":"ALG","Argentina":"ARG","Cape Verde":"CPV",
+  "Colombia":"COL","Ghana":"GHA","Australia":"AUS","Egypt":"EGY",
+  // same likely-alternates as ISO so a feed rename won't break the codes
+  "United States":"USA","Côte d'Ivoire":"CIV","Cabo Verde":"CPV",
+  "IR Iran":"IRN","Iran":"IRN","Korea Republic":"KOR","South Korea":"KOR"
+};
+// unknown team string -> first three letters, so a new name still reads okay
+function fifaCode(team){ return FIFA[team] || String(team).slice(0,3).toUpperCase(); }
+
 /* Feed "ground" (host city) -> stadium name. Hand-authored like ISO, keyed on
    the exact strings the feed uses; an unknown ground falls back to the raw
    feed string so venue info degrades gracefully rather than disappearing. */
@@ -492,10 +511,23 @@ function matchStatus(node, now){
   if (diff <= DECK_MS) return "deck";               // imminent (<4 h)
   return diff <= SOON_MS ? "soon" : "";             // today (<12 h)
 }
+/* Label for one side of a match. A decided side is the team name. An undecided
+   side names the feeder match that will decide it — "PAR/FRA" (FIFA trigrams,
+   in the feeder's official team1/team2 order) — once both feeder teams are
+   known; before that it stays "TBD". */
+function sideLabel(model, num, slot){
+  const team = model[num].participants[slot];
+  if (team) return team;
+  if (R32SET.has(num)) return "TBD"; // leaf: no feeder match inside the bracket
+  const feeder = model[CHILDREN[num][slot]];
+  return (feeder && feeder.participants[0] && feeder.participants[1])
+    ? `${fifaCode(feeder.participants[0])}/${fifaCode(feeder.participants[1])}`
+    : "TBD";
+}
 // tooltip fields for a match node (same match backs both its outer flags and its winner flag)
 function tipFor(model, num){
   const n = model[num];
-  const teams = `${n.participants[0]||"TBD"} vs ${n.participants[1]||"TBD"}`;
+  const teams = `${sideLabel(model,num,0)} vs ${sideLabel(model,num,1)}`;
   return { round:roundName(num), teams, score:n.label, when:n.label?"":kickoff(n),
            status:matchStatus(n, nowMs), venue:venueLabel(n.ground) };
 }
