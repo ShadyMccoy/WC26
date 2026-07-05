@@ -99,22 +99,27 @@
      document coordinates, NOT fixed: when a phone is pinch-zoomed the visual and
      layout viewports disagree, and browsers don't agree on which one client
      coordinates or fixed elements are relative to — document coordinates are the
-     one space they all share. */
+     one space they all share. --tts counter-scales the tip under pinch zoom
+     (set from visualViewport.scale) so it keeps its unzoomed on-screen size
+     instead of being magnified with the bracket. It leads each transform chain
+     with transform-origin 0 0, so the translate offsets shrink with it and the
+     tip's anchor corner stays put. */
   .tooltip{
     position:absolute;z-index:50;pointer-events:none;
+    --tts:1;transform-origin:0 0;
     background:#1c1b18;color:#f2ede1;
     padding:7px 12px;border-radius:10px;
     font-size:13px;line-height:1.35;text-align:center;white-space:nowrap;
     box-shadow:0 6px 18px rgba(0,0,0,.30);
-    opacity:0;transform:translate(-50%,-100%) translateY(-6px) scale(.96);
+    opacity:0;transform:scale(var(--tts)) translate(-50%,-100%) translateY(-6px) scale(.96);
     transition:opacity .12s ease, transform .12s ease;
   }
-  .tooltip.on{opacity:1;transform:translate(-50%,-100%) translateY(-10px) scale(1)}
+  .tooltip.on{opacity:1;transform:scale(var(--tts)) translate(-50%,-100%) translateY(-10px) scale(1)}
   .tooltip::after{content:"";position:absolute;left:50%;bottom:-5px;transform:translateX(-50%) rotate(45deg);
     width:10px;height:10px;background:#1c1b18;border-radius:2px}
   /* flipped below the flag (for flags near the top edge) */
-  .tooltip.below{transform:translate(-50%,0) translateY(6px) scale(.96)}
-  .tooltip.below.on{transform:translate(-50%,0) translateY(10px) scale(1)}
+  .tooltip.below{transform:scale(var(--tts)) translate(-50%,0) translateY(6px) scale(.96)}
+  .tooltip.below.on{transform:scale(var(--tts)) translate(-50%,0) translateY(10px) scale(1)}
   .tooltip.below::after{top:-5px;bottom:auto}
   .tooltip .tt-round{font-size:10px;letter-spacing:.7px;text-transform:uppercase;font-weight:700;color:var(--gold)}
   .tooltip .tt-teams{font-weight:600;margin-top:2px}
@@ -753,8 +758,15 @@ function positionTip(el, ev){
   const vLeft = vv ? vv.pageLeft : window.scrollX;
   const vTop  = vv ? vv.pageTop  : window.scrollY;
   const vW    = vv ? vv.width    : window.innerWidth;
+  // Pinch zoom magnifies page elements, tooltip included; counter-scale so the
+  // tip stays its unzoomed on-screen size. Zoomed out (scale<1) it stays 1 —
+  // a growing tooltip is the annoyance, a slightly smaller one isn't.
+  const tts = vv && vv.scale > 1 ? 1/vv.scale : 1;
+  tipEl.style.setProperty("--tts", tts);
   const cx = Math.min(Math.max(ax, vLeft + 8), vLeft + vW - 8);
-  const flip = top - vTop < 90; // near the visible top edge -> show below the anchor
+  // near the visible top edge -> show below the anchor; the clearance the tip
+  // needs is in layout px, so it shrinks along with the counter-scaled tip
+  const flip = top - vTop < 90*tts;
   tipEl.classList.toggle("below", flip);
   tipEl.style.left = cx + "px";
   tipEl.style.top  = (flip ? bottom : top) + "px";
@@ -797,6 +809,10 @@ stage.addEventListener("click", e=>{
 });
 document.addEventListener("click", ()=>hideTip());
 window.addEventListener("scroll", hideTip, {passive:true});
+// pinch-zooming with a tip open would leave it at a stale scale; dismiss it
+// like a scroll does (visualViewport resize fires as the zoom level changes)
+if (window.visualViewport)
+  window.visualViewport.addEventListener("resize", hideTip, {passive:true});
 
 /* ---- Venue toggle + interactive legend (stadium spotlight) ----
    One pill per stadium hosting bracket matches. Hover previews (desktop);
