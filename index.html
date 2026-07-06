@@ -897,12 +897,37 @@ let dataUpdatedAt = null; // when the source feed last changed (its latest commi
 
 async function refreshDataUpdatedAt(){
   try{
-    const res = await fetch(FEED_COMMITS_URL);
+    // no-store, like the data fetch: a cached response here pairs a stale
+    // stamp with fresh results (Safari tab restores reuse stale cache entries)
+    const res = await fetch(FEED_COMMITS_URL, {cache:"no-store"});
     if (!res.ok) return; // rate-limited etc. — keep last known value
     const commits = await res.json();
     const iso = commits?.[0]?.commit?.committer?.date;
     if (iso) dataUpdatedAt = new Date(iso);
   }catch(err){ console.warn("commit lookup failed:", err); }
+}
+
+// "2026-07-05" + "16:00 UTC-4" -> Date of kickoff; null when either part is odd
+function kickoffTime(m){
+  const t = /^(\d\d):(\d\d) UTC([+-])(\d{1,2})(?::(\d\d))?$/.exec(m.time||"");
+  if (!m.date || !t) return null;
+  const d = new Date(`${m.date}T${t[1]}:${t[2]}:00${t[3]}${t[4].padStart(2,"0")}:${t[5]||"00"}`);
+  return isNaN(d) ? null : d;
+}
+
+/* A result can't predate its own kickoff. If the feed carries a score for a
+   match that kicked off after the commit stamp, the commit lookup was stale
+   (or rate-limited away entirely) — trust the data over the metadata, so the
+   stamp is never older than the results on screen. */
+function floorUpdatedAtToResults(matches){
+  let latest = null;
+  for (const m of matches){
+    const sc = m && m.score;
+    if (!sc || !(sc.ft || sc.et || sc.p)) continue;
+    const k = kickoffTime(m);
+    if (k && (!latest || k > latest)) latest = k;
+  }
+  if (latest && (!dataUpdatedAt || dataUpdatedAt < latest)) dataUpdatedAt = latest;
 }
 
 function fmtStamp(d){
@@ -923,6 +948,7 @@ function stamp(ok, msg){
 async function load(){
   try{
     const [raw] = await Promise.all([fetchResults(), refreshDataUpdatedAt()]);
+    floorUpdatedAtToResults(raw);
     render(buildModel(normalize(raw)));
     stamp(true);
   }catch(err){
